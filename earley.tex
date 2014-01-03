@@ -1,0 +1,268 @@
+\documentclass{beamer}
+\usetheme{Frankfurt}
+\begin{document}
+
+\title[Earley Parsing]{Earley Parsing}
+\author[m4burns]{Marc Burns}
+\date[November 2013]{November 27, 2013}
+
+\begin{frame}[plain]
+  \titlepage
+\end{frame}
+
+\section{Earley Parsing (1968)}
+\subsection{Background}
+\begin{frame}{Earley's Original Work}
+  Earley presented the idea in his PhD dissertation.\\~\\
+
+  An Earley parser is a dynamic program run on the {\it character boundaries}
+  of the input string.\\~\\
+
+  Earley's original algorithm uses three rules to make progress, and includes $k$ tokens of look-ahead.
+  Right-recursion and nullable rules are handled poorly.
+\end{frame}
+
+\subsection{The Algorithm}
+\begin{frame}{The Algorithm}
+  Let the input string be $X_1, \ldots, X_n$. \\~\\
+
+  Let $S_0, \ldots, S_n$ be sets of states, one for each character boundary.
+
+  A {\it state} is a tuple of four elements:
+  \begin{itemize}
+    \item A production $A \to \alpha\beta$ being scanned at the given position.
+    \item A point in the production, denoted $\bullet$, such that all terminals and nonterminals to the left of $\bullet$ have been
+      successfully scanned.
+    \item A $k$-symbol string which must follow the production.
+    \item An index into the input string at which the expected production begins.
+  \end{itemize}
+
+  Such a tuple is denoted $\langle A \to \alpha\bullet\beta, \dashv, 0 \rangle$.
+\end{frame}
+
+\begin{frame}
+  Let $G = (V, \Sigma, P, S)$. \\~\\
+
+  Begin by adding a new rule $S' \to S \dashv$ to the grammar, where $\dashv$ is a terminal symbol not in $V$. \\~\\
+
+  Initialize $S_0$ to $\{\langle S' \to \bullet S \dashv, \dashv^k, 0 \rangle\}$.
+\end{frame}
+
+\begin{frame}
+  We process the input string in order. At each position $i$, we consider the states $S_i$ in the order in which they were added.\\~\\
+
+  On each state $s \in S_i$, we run either the predictor, scanner, or completer.\\~\\
+
+  The predictor and completer may add {\it new} states to $S_i$.\\~\\
+
+  We continue processing states of $S_i$ until no new states are added. Each state is processed {\it once}.\\~\\
+\end{frame}
+
+\begin{frame}{Prediction}
+  For each state of the form $\langle A \to \alpha \bullet X \beta, s, j\rangle \in S_i$, where $X \in V$, we add a state of the form
+  $\langle X \to \bullet \gamma\delta, \mbox{prefix}(\beta s, k), i\rangle$ to $S_i$ for each $X \to \gamma\delta \in P$.
+\end{frame}
+
+\begin{frame}{Scanning}
+  For each state of the form $\langle A \to \alpha \bullet a \beta, s, j\rangle$, where $a \in \Sigma \setminus V$, we check if $X_{i+1} = a$.\\~\\
+
+  If so, we add to $S_{i+1}$ the state $\langle A \to \alpha a \bullet \beta, s, j\rangle$.
+\end{frame}
+
+\begin{frame}{Completion}
+  For each state of the form $\langle A \to \alpha \beta \bullet, s, j\rangle$, we check if $(X_{i+1}, \ldots, X_{i+k}) = s$.\\~\\
+
+  If so, we find all states of the form $\langle B \to \gamma \bullet A \delta, u, k\rangle$ in $S_j$.\\~\\
+
+  For each such state, we add the state $\langle B \to \gamma A \bullet \delta, u, k\rangle$ to $S_i$.
+\end{frame}
+
+\begin{frame}{Termination}
+  The algorithm terminates when $S_{i+1}$ is empty or $i = n$.\\~\\
+
+  The input string is in the language iff. $\langle S' \to S \dashv \bullet, \dashv^k, 0\rangle \in S_i$ for some $i$.
+\end{frame}
+
+\subsection{Analysis}
+\begin{frame}{Complexity}
+  The size of the grammar is considered constant.\\~\\
+
+  Each state-set $S_i$ has $O(i)$ elements: The only state parameter not bounded by the size of the grammar is the input-index $i$;
+  rules in $S_i$ may refer only to indices $\{0, \ldots, i\}$.\\~\\
+
+  The scanner and predictor operations are bounded in time by the size of the grammar, so all scanning and prediction to be done for $S_i$ requires $O(i)$ time.\\~\\
+
+  For each state in $S_i$, the completer processes $O(i)$ states from an earlier state-set, requiring $O(i^2)$ time.\\~\\
+
+  Summing over the length of the string gives $O(n^3)$ time.
+\end{frame}
+
+\begin{frame}
+  Space required for a recognizer is $O(n^2)$. A parser can be derived by adding witnesses; the space requirement increases to $O(n^3)$.
+\end{frame}
+
+\begin{frame}{Good Cases}
+  A grammar is {\it bounded state with look-ahead $k$}, or BS($k$), if the size of each $S_i$ using $k$ tokens of look-ahead is bounded by some constant $b$.\\~\\
+
+  Earley's algorithm performs in linear time on all grammars with bounded state.
+\end{frame}
+
+\begin{frame}
+  Earley proves in his dissertation that any finite union of LR($k$) grammars is BS($k$), and hence the algorithm performs in linear time on all LR($k$) grammars.
+  The proof is complicated.\\~\\
+
+  Earley conjectures that the result holds for $0$ tokens of look-ahead with a small change to the algorithm (not described). Joop Leo publishes
+  a modified algorithm achieving this result in 1987.
+\end{frame}
+
+\begin{frame}{Bad Cases}
+  As described above, Earley's algorithm does not handle nullable productions.\\~\\
+
+  When the completer runs on a state of the form $\langle A \to \bullet, s, i\rangle \in S_i$, it must move the dot forward in
+  all rules of the form $\langle B \to \gamma \bullet A \delta, u, j\rangle \in S_i$, but later prediction and completion steps
+  could add new rules of this form.\\~\\
+
+  This will cause incorrect rejections.
+\end{frame}
+
+\begin{frame}
+  Ad-hoc fix: Keep iterating over states in $S_i$ until a full iteration causes no changes.\\~\\
+
+  This wastes a lot of time and makes analysis more difficult.
+\end{frame}
+
+\section{Joop Leo's Improvements}
+
+\subsection{Overview}
+\begin{frame}{Joop Leo's Improvements: Overview}
+  The notion of look-ahead is discarded.\\~\\
+
+  Idea: Eagerly remove complete items from state-sets. If possible, proceed without adding complete items to state sets. Skip over nullable rules.
+\end{frame}
+
+\subsection{The Algorithm}
+\begin{frame}{The Algorithm}
+  States are now of the form $\langle A \to \alpha\beta, j \rangle$. We use $\delta$ to denote a nullable sentential form: $\delta \Rightarrow^+ \epsilon$.\\~\\
+
+  For input string $X_1, \ldots, X_n$, we proceed as in Earley's algorithm on states $S_0, \ldots S_n$, but with some modifications to the scanner, predictor, and completer.\\~\\
+
+  The grammar is again augmented, this time with $S' \to S$.
+\end{frame}
+
+\begin{frame}{Deterministic Reduction Path}
+  A state is said to be {\it on the deterministic reduction path above} $\langle A \to \gamma \bullet, i \rangle$ if it is
+  $\langle B \to \alpha A \bullet , k \rangle$ with $\langle B \to \alpha \bullet A, k \rangle$ being the only state in $S_i$
+  with the dot in front of $A$, or if it is on the deterministic reduction path above $\langle B \to \alpha A \bullet , k \rangle$.
+  \\~\\
+
+  Once the grammar is augmented, there is a {\it topmost} state on every non-empty deterministic reduction path: A state on the path
+  such that there is no state above it.\\~\\
+
+  When computing the topmost state, we can avoid computing the entire deterministic reduction path for a state by adding {\it transitive states} to state sets.
+\end{frame}
+
+\begin{frame}{Transitive States}
+  A new form: $\langle C \to \delta \bullet, B, m \rangle$\\~\\
+
+  If $\langle C \to \delta \bullet, m \rangle$ is topmost above $\langle A \to \gamma \bullet, i \rangle$,
+  and $\langle B \to \beta \bullet, k \rangle$ is some other state on the path, add to $S_k$ the state
+  $\langle C \to \delta \bullet, B, m \rangle$.\\~\\
+
+  This will make completion faster.
+\end{frame}
+
+\begin{frame}{Prediction}
+  For each state of the form $\langle A \to \alpha \bullet B \beta, i\rangle \in S_j$, where $X \in V$, we add to $S_j$ all states of the form
+  $\langle C \to \gamma\bullet\xi, j\rangle$, where $C \to \gamma\xi \in P$, $\gamma \Rightarrow^* \epsilon$, and $B \Rightarrow^* C\eta$ for $\eta\in V^*$.
+\end{frame}
+
+\begin{frame}{Scanning}
+  For each state of the form $\langle A \to \alpha \bullet a \delta\gamma, i\rangle\in S_j$ such that $a = X_{j+1}$ and $\delta \Rightarrow^+ \epsilon$, we add to $S_{j+1}$
+  the state $\langle A \to \alpha a\delta\bullet\gamma, i\rangle$.
+\end{frame}
+
+\begin{frame}{Completion}
+  For each state of the form $\langle A \to \gamma\bullet, i\rangle\in S_j$, we add to $S_j$, if it exists, the topmost complete state on the deterministic reduction path above
+  $\langle A \to \gamma\bullet, i\rangle$.\\~\\
+
+  If no such state exists, then for each state $\langle B \to \alpha \bullet A \delta\eta, k\rangle\in S_i$ such that $\delta \Rightarrow^+ \epsilon$, we add
+  $\langle B \to \alpha A \delta\bullet\eta, k\rangle$ to $S_j$.
+\end{frame}
+
+\subsection{Analysis}
+\begin{frame}{Analysis}
+  The paper gives pseudocode for a realization of this algorithm on a RAM machine.\\~\\
+
+  Proofs of the theoretical results from the paper are ``long and tedious''.\\~\\
+
+  Key results:
+  \begin{itemize}
+    \item Correctness.
+    \item Worst-case time and space complexity are no worse than Earley's algorithm.
+    \item The algorithm runs in linear time and linear space for every LR-regular grammar.
+    \item For an arbitrary grammar, it is undecidable (by reduction to PCP) whether the algorithm runs in linear time.
+  \end{itemize}
+
+  The class LR-regular includes every LR($k$) grammar.
+\end{frame}
+
+\section{Practical Earley Parsing}
+\subsection{Overview}
+\begin{frame}{Practical Earley Parsing: Overview}
+  Aycock and Horspool revisited the earlier results in 2001.\\~\\
+
+  Problems with Earley:
+
+  \begin{itemize}
+    \item Nullable production are handled poorly.
+    \item Keeping a linked data structure for every character in the input is {\it bad}.
+  \end{itemize}
+
+  A simple solution to the problem of $\epsilon$ is presented.\\~\\
+
+  With this, the states added by the modified predictor can be precomputed.\\~\\
+
+  A DFA very similar to the LR(0) DFA can be produced!
+\end{frame}
+
+\begin{frame}{Fixing $\epsilon$}
+  It's easy to check if a given nonterminal is nullable.\\~\\
+
+  Idea: Modify Earley's predictor as follows:\\~\\
+
+  For each state of the form $\langle A \to \alpha \bullet X \beta, i\rangle \in S_j$, where $X \in V$, we add a state of the form
+  $\langle X \to \bullet \gamma\delta, i\rangle$ to $S_i$ for each $X \to \gamma\delta \in P$. If $X$ is nullable, we also add
+  $\langle A \to \alpha X \bullet \beta, i\rangle$.
+\end{frame}
+
+\begin{frame}{Precomputation}
+  Now that the result of the predictor can be precomputed, we can construct a DFA in which each state corresponds to
+  a group of Earley states that always occur together in a state-set, modulo indices back into the string (these still need to be stored).
+
+  The paper glosses over how to construct the DFA.
+\end{frame}
+
+\begin{frame}{String Indices}
+  The paper claims that the DFA can be modified and used such that an Earley state-set is represented as a short list of DFA state numbers and string indices.
+
+  I don't understand this process yet.
+\end{frame}
+
+\subsection{Analysis}
+\begin{frame}{Analysis}
+  Asymptotically, the algorithm is no worse than Earley's.\\~\\
+
+  No additional complexity analysis is done in the paper, but empirical results are given showing a 40\% speedup compared to Earley's.
+\end{frame}
+
+\section{cfg-parser.rkt and Benchmarks}
+\subsection{cfg-parser.rkt}
+\begin{frame}{Is cfg-parser.rkt an Earley parser?}
+  I think so.\\~\\
+
+  The predictor appears to be replaced with continuation-based backtracking.\\~\\
+
+  I haven't finished dissecting it yet.
+\end{frame}
+
+\end{document}
